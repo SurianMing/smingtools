@@ -1,0 +1,32 @@
+function buildDockerTar() {
+    local projFile=$1
+    local buildFolder=$2
+    local deploymentFolder=$3
+    local containerName="$4:$5"
+    local packageName="$4_$5.tar"
+    local k8sConfigFile="$4-deployment.yml"
+
+    local cleanBuildFolderCmd="[ -d $buildFolder ] && rm -rf $buildFolder || mkdir $buildFolder"
+    echo "$cleanBuildFolderCmd"
+    local dotnetCmd="dotnet publish $projFile --configuration Release --framework net6.0 --output $buildFolder --self-contained false --runtime linux-x64 --verbosity quiet"
+    echo "$dotnetCmd"
+    local copyCmd="cp -r ${deploymentFolder}Dockerfile ${buildFolder}"
+    echo "$copyCmd"
+    local dockerCmd="docker build -t $containerName $buildFolder"
+    echo "$dockerCmd"
+    local dockerSaveCmd="docker save -o $deploymentFolder$packageName $containerName"
+    echo "$dockerSaveCmd"
+    local replaceTextCmd="sed -i 's/$4:[0-9]\+\.[0-9]\+\.[0-9]\+\.[0-9]\+/$containerName/g' $3$k8sConfigFile"
+    echo "$replaceTextCmd"
+
+    eval "$cleanBuildFolderCmd"
+    eval "$dotnetCmd"
+    eval "$copyCmd"
+    eval "$dockerCmd"
+    eval "$dockerSaveCmd"
+    eval "$replaceTextCmd"
+
+    echo "Complete.... Release script is:"
+    local deployScript="cp ../$6/$k8sConfigFile ./; sed -i 's/$4:[0-9]\+\.[0-9]\+\.[0-9]\+\.[0-9]\+/$containerName/g' $k8sConfigFile; docker load -i $packageName; docker tag $containerName docker.registry/$containerName; docker push docker.registry/$containerName; kubectl delete -f ../$6/$k8sConfigFile"
+    echo "$deployScript"
+}

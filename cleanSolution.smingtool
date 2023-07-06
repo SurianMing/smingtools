@@ -1,0 +1,8 @@
+function cleanSolution() {
+    path=$(pwd)
+    while [[ "$path" != "" && ! -e "$path/.sming/" ]]; do
+        path=${path%/*}
+    done
+
+    find "$path" -iname "bin" -o -iname "obj" | xargs rm -rf
+}

@@ -1,0 +1,3 @@
+function codei() {
+    code-insiders $1
+}

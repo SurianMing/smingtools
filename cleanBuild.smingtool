@@ -1,0 +1,14 @@
+function cleanBuild() {
+    path=$(pwd)
+    while [[ "$path" != "" && ! -e "$path/.sming/" ]]; do
+        path=${path%/*}
+    done
+
+    find "$path" -iname "bin" -o -iname "obj" | xargs rm -rf
+    
+    if [[ $# -eq 0 ]]; then
+        dotnet build "$path"
+    else
+        dotnet build "$1"
+    fi
+}

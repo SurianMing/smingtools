@@ -1,0 +1,11 @@
+function gaddexcept() {
+    local func="git add -- ."
+
+    for var in "$@"
+    do
+        func+=" ':!$var'"
+    done
+
+    echo "$func"
+    eval "$func"
+}

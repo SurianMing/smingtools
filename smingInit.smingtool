@@ -1,0 +1,4 @@
+function smingInit() {
+    path=$(pwd)
+    mkdir "$path/.sming/"
+}
