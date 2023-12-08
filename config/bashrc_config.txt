@@ -1,0 +1,8 @@
+This is the snippet I use for adding the tools. I add it to my .bashrc file.
+
+if [ -d ~/{smingtools_repo_dir}/ ]; then
+    for smingfile in `find ~/{smingtools_repo_dir}/ -type f -name "*.smingtool"`; do
+        echo "Loading tool from $smingfile"
+        . "$smingfile"
+    done
+fi
