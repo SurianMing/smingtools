@@ -1,0 +1,11 @@
+minikube start --kubernetes-version='stable'
+
+kubectl config view --raw >> config_new.txt
+
+minikube mount /home/matt/data:/data (in separate terminal)
+
+kubectl apply -f kafka_network.yml
+kubectl apply -f kafka_kcat.yml
+kubectl apply -f kafka_zookeeper.yml
+kubectl apply -f kafka_kafka.yml
+

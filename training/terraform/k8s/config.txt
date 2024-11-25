@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Config
+clusters:
+  - name: kind-kind
+    cluster:
+      server: https://127.0.0.1:44921
+      certificate-authority-data: DATA+OMITTED
+      insecure-skip-tls-verify: false
+users:
+  - name: kind-kind
+    user:
+      client-certificate-data: DATA+OMITTED
+      client-key-data: DATA+OMITTED
+contexts: []
+preferences: {}
+current-context: kind-kind

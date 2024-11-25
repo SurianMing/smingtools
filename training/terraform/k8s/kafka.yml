@@ -1,0 +1,259 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kafka
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  namespace: kafka
+  name: kafka-pv
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /home/matt/data/kafka
+  persistentVolumeReclaimPolicy: Retain
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  namespace: kafka
+  name: kafka-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  namespace: kafka
+  name: zookeeper-data-pv
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /home/matt/data/zookeeper/data
+  persistentVolumeReclaimPolicy: Retain
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  namespace: kafka
+  name: zookeeper-data-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  namespace: kafka
+  name: zookeeper-log-pv
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /home/matt/data/zookeeper/log
+  persistentVolumeReclaimPolicy: Retain
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  namespace: kafka
+  name: zookeeper-log-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: kafka-network
+  namespace: kafka
+spec:
+  ingress:
+    - from:
+      - podSelector:
+          matchLabels:
+            network/kafka-network: "true"
+  podSelector:
+    matchLabels:
+      network/kafka-network: "true"
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: kcat
+  namespace: kafka
+  labels:
+    app: kcat
+spec:
+  selector:
+    matchLabels:
+      app: kcat
+  template:
+    metadata:
+      labels:
+        app: kcat
+    spec:
+      containers:
+        - name: kafka-cat
+          image: confluentinc/cp-kafkacat:7.1.6
+          command: ["/bin/sh"]
+          args: ["-c", "trap : TERM INT; sleep infinity & wait"]
+      nodeSelector:
+        tier: backend
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    service: zookeeper
+  name: zookeeper
+  namespace: kafka
+spec:
+  ports:
+    - name: "2181"
+      port: 2181
+      targetPort: 2181
+  selector:
+    service: zookeeper
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+    service: zookeeper
+  name: zookeeper
+  namespace: kafka
+spec:
+  serviceName: zookeeper
+  replicas: 1
+  selector:
+    matchLabels:
+      service: zookeeper
+  template:
+    metadata:
+      labels:
+        network/kafka-network: "true"
+        service: zookeeper
+    spec:
+      containers:
+        - name: zookeeper
+          imagePullPolicy: Always
+          image: confluentinc/cp-zookeeper:7.3.2
+          ports:
+            - containerPort: 2181
+          env:
+            - name: ZOOKEEPER_CLIENT_PORT
+              value: "2181"
+            - name: ZOOKEEPER_DATA_DIR
+              value: "/var/lib/zookeeper/data"
+            - name: ZOOKEEPER_LOG_DIR
+              value: "/var/lib/zookeeper/log"
+            - name: ZOOKEEPER_SERVER_ID
+              value: "1"
+          resources: {}
+          volumeMounts:
+            - name: zookeeper-data-pv
+              mountPath: /var/lib/zookeeper/data
+            - name: zookeeper-log-pv
+              mountPath: /var/lib/zookeeper/log
+      nodeSelector:
+        tier: backend
+      hostname: zookeeper
+      restartPolicy: Always
+      volumes:
+        - name: zookeeper-data-pv
+          persistentVolumeClaim:
+            claimName: zookeeper-data-pvc
+        - name: zookeeper-log-pv
+          persistentVolumeClaim:
+            claimName: zookeeper-log-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    service: kafka
+  name: kafka
+  namespace: kafka
+spec:
+  clusterIP: None
+  selector:
+    service: kafka
+  ports:
+  - port: 29092
+    targetPort: 29092
+    name: internal
+  - port: 30092
+    targetPort: 9092
+    name: external
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+    service: kafka
+  name: kafka
+  namespace: kafka
+spec:
+  serviceName: kafka
+  replicas: 3
+  selector:
+    matchLabels:
+      service: kafka
+  template:
+    metadata:
+      labels:
+        network/kafka-network: "true"
+        service: kafka
+    spec:
+      containers:
+      - name: kafka
+        imagePullPolicy: IfNotPresent
+        image: confluentinc/cp-kafka:7.0.1
+        ports:
+          - containerPort: 29092
+          - containerPort: 9092
+        env:
+          - name: KAFKA_ADVERTISED_LISTENERS
+            value: "INTERNAL://:29092,LISTENER_EXTERNAL://:9092"
+          - name: KAFKA_AUTO_CREATE_TOPICS_ENABLE
+            value: "true"
+          - name: KAFKA_INTER_BROKER_LISTENER_NAME
+            value: "INTERNAL"
+          - name: KAFKA_LISTENERS
+            value: "INTERNAL://:29092,LISTENER_EXTERNAL://:9092"
+          - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
+            value: "INTERNAL:PLAINTEXT,LISTENER_EXTERNAL:PLAINTEXT"
+          - name: KAFKA_ZOOKEEPER_CONNECT
+            value: "zookeeper:2181"
+        resources: {}
+        volumeMounts:
+        - name: kafka-pv
+          mountPath: /var/lib/kafka/
+      nodeSelector:
+        tier: backend
+      hostname: kafka
+      restartPolicy: Always
+      volumes:
+        - name: kafka-pv
+          persistentVolumeClaim:
+            claimName: kafka-pvc

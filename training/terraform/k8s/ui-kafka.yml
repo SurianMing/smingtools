@@ -1,0 +1,80 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  namespace: kafka
+  name: kafka-ui-pv
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /home/matt/data/kui
+  persistentVolumeReclaimPolicy: Retain
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  namespace: kafka
+  name: kafka-ui-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: kafka
+  name: kafka-ui  # Name of the deployment
+spec:
+  selector:
+    matchLabels:
+      app: kafka-ui  # Label selector to match pods controlled by this deployment
+  template:
+    metadata:
+      labels:
+        app: kafka-ui  # Labels applied to pods created by this deployment
+    spec:
+      containers:
+        - name: kafka-ui
+          image: provectuslabs/kafka-ui:latest
+          ports:
+          - containerPort: 8080
+          env:
+            - name: AUTH_TYPE
+              value: "DISABLED"
+            - name: MANAGEMENT_HEALTH_LDAP_ENABLED
+              value: "FALSE"
+            - name: KAFKA_CLUSTERS_0_NAME
+              value: minikube
+            - name: KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS
+              value: kafka:9092
+            - name: DYNAMIC_CONFIG_ENABLED
+              value: "TRUE"
+          volumeMounts:
+          - name: kafka-ui-pv
+            mountPath: /etc/kafkaui/
+          resources: {}
+      nodeSelector:
+        tier: frontend
+      volumes:
+        - name: kafka-ui-pv
+          persistentVolumeClaim:
+            claimName: kafka-ui-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: kafka
+  name: kafka-ui
+spec:
+  selector:
+    app: kafka-ui
+  ports:
+  - port: 8081
+    targetPort: 8080
+    protocol: TCP
+    name: http

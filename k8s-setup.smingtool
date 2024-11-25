@@ -1,0 +1,10 @@
+function k8s-setup() {
+    helm install prometheus prometheus-community/prometheus
+    kubectl apply -f /home/matt/training/terraform/k8s/kafka.yml
+    kubectl apply -f /home/matt/training/terraform/k8s/ui-kafka.yml
+    kubectl kustomize "https://github.com/nginxinc/nginx-gateway-fabric/config/crd/gateway-api/standard?ref=v1.3.0" | kubectl apply -f -
+    kubectl apply -f https://raw.githubusercontent.com/nginxinc/nginx-gateway-fabric/v1.3.0/deploy/crds.yaml
+    kubectl apply -f /home/matt/training/terraform/k8s/nginx/nginx-gateway.yaml
+    kubectl apply -f /home/matt/training/terraform/k8s/nginx/gateway.yml
+    kubectl apply -f /home/matt/training/terraform/k8s/nginx/kafka-ui.yml
+}
